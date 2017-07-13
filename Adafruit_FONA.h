@@ -165,6 +165,10 @@ class Adafruit_FONA : public FONAStreamType {
 
   // HTTP high level interface (easier to use, less flexible).
   boolean HTTP_GET_start(char *url, uint16_t *status, uint16_t *datalen);
+
+  boolean waitForReply(char *reply, int32_t *timeout);
+
+
   void HTTP_GET_end(void);
   boolean HTTP_POST_start(char *url, FONAFlashStringPtr contenttype, const uint8_t *postdata, uint16_t postdatalen,  uint16_t *status, uint16_t *datalen);
   void HTTP_POST_end(void);
@@ -215,11 +219,13 @@ class Adafruit_FONA : public FONAStreamType {
   uint8_t getReply(FONAFlashStringPtr prefix, int32_t suffix, uint16_t timeout = FONA_DEFAULT_TIMEOUT_MS);
   uint8_t getReply(FONAFlashStringPtr prefix, int32_t suffix1, int32_t suffix2, uint16_t timeout); // Don't set default value or else function call is ambiguous.
   uint8_t getReplyQuoted(FONAFlashStringPtr prefix, FONAFlashStringPtr suffix, uint16_t timeout = FONA_DEFAULT_TIMEOUT_MS);
+  uint8_t concatAndSend(FONAFlashStringPtr prefix, FONAFlashStringPtr middle, FONAFlashStringPtr suffix, uint16_t timeout = FONA_DEFAULT_TIMEOUT_MS);
 
   boolean sendCheckReply(FONAFlashStringPtr prefix, char *suffix, FONAFlashStringPtr reply, uint16_t timeout = FONA_DEFAULT_TIMEOUT_MS);
   boolean sendCheckReply(FONAFlashStringPtr prefix, int32_t suffix, FONAFlashStringPtr reply, uint16_t timeout = FONA_DEFAULT_TIMEOUT_MS);
   boolean sendCheckReply(FONAFlashStringPtr prefix, int32_t suffix, int32_t suffix2, FONAFlashStringPtr reply, uint16_t timeout = FONA_DEFAULT_TIMEOUT_MS);
   boolean sendCheckReplyQuoted(FONAFlashStringPtr prefix, FONAFlashStringPtr suffix, FONAFlashStringPtr reply, uint16_t timeout = FONA_DEFAULT_TIMEOUT_MS);
+
 
 
   boolean parseReply(FONAFlashStringPtr toreply,
@@ -250,6 +256,8 @@ class Adafruit_FONA_3G : public Adafruit_FONA {
     boolean pickUp(void);
     boolean enableGPRS(boolean onoff);
     boolean enableGPS(boolean onoff);
+    boolean HTTP_GET_start(char *url, uint16_t *status, uint16_t *datalen);
+    void HTTP_GET_end(void);
 
  protected:
     boolean parseReply(FONAFlashStringPtr toreply,

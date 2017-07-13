@@ -17,7 +17,7 @@
     // next line per http://postwarrior.com/arduino-ethershield-error-prog_char-does-not-name-a-type/
 
 #include "Adafruit_FONA.h"
-
+#include <string.h>
 
 
 
@@ -1573,15 +1573,86 @@ boolean Adafruit_FONA::HTTP_GET_start(char *url,
   DEBUG_PRINT(F("Len: ")); DEBUG_PRINTLN(*datalen);
 
   // HTTP response data
-  if (! HTTP_readall(datalen))
+  if (!HTTP_readall(datalen))
     return false;
 
   return true;
 }
 
+
+boolean Adafruit_FONA::waitForReply(char *reply, int32_t *timeout) {
+    while (timeout > 0) {
+        readline(1000);
+        DEBUG_PRINT (F("<--buffer: ")); DEBUG_PRINTLN(replybuffer);
+        if(replybuffer == reply){
+            return true;
+        }
+        timeout--;
+    }
+    return false;
+}
+
+boolean Adafruit_FONA_3G::HTTP_GET_start(char *url, uint16_t *status, uint16_t *datalen){
+
+   char at_opse[100];
+   char at_url_command[100];
+   char at_host_command[100];
+   char apn_set_command2[100];
+   char host[100];
+   char page[100];
+   int url_length = 0;
+   while(url[url_length]!='\0') { url_length++; } 
+
+	//add 20 for extra
+	//GET  HTTP/1.1 Host: 
+	url_length+=24;
+
+   sscanf(url, "%99[^/]/%199[^\n]",host,page);
+   strcpy(at_opse, "AT+CHTTPSOPSE=\""); strcat(at_opse, host); strcat(at_opse, "\",80,1");//AT+CHTTPSOPSE="www.mydomain.com",80,1
+   strcpy(at_url_command, "GET /"); strcat(at_url_command, page); strcat(at_url_command, " HTTP/1.1"); //GET /mypath.html HTTP/1.1
+   strcpy(at_host_command, "Host: "); strcat(at_host_command, host);  //Host: www.mydomain.com
+
+   concatAndSend(F("AT+CGDCONT=1,\"IP\",\""), apn, F("\",\"0.0.0.0\""), 2000);
+   concatAndSend(F("AT+CGSOCKCONT=1,\"IP\",\""), apn, F("\""), 2000);
+   sendCheckReply(F("AT+CSOCKSETPN=1"), ok_reply);
+   sendCheckReply(F("AT+CHTTPSSTART"), ok_reply,8000);
+   sendCheckReply(at_opse, ok_reply, 8000);
+
+
+
+  DEBUG_PRINT (F("\t---> AT+CHTTPSSEND=")); DEBUG_PRINTLN(url_length);
+  flushInput();
+  mySerial->print(F("AT+CHTTPSSEND="));
+  mySerial->print(url_length);
+  mySerial->println("");
+  readline(3000); DEBUG_PRINT (F("\t<--- ")); DEBUG_PRINTLN(replybuffer);//get OK
+
+
+   mySerial->write(at_url_command);
+   mySerial->write(0x0A);
+   mySerial->write(at_host_command);
+
+
+   mySerial->write(0x0A); mySerial->write(0x0D);
+   mySerial->write(0x0A); mySerial->write(0x0D);
+   mySerial->write(0x0A); mySerial->write(0x0D);
+   mySerial->write(0x0A); mySerial->write(0x0D);
+
+
+   readline(3000); DEBUG_PRINT (F("\t<--- ")); DEBUG_PRINTLN(replybuffer);//get OK
+   readline(8000); DEBUG_PRINT (F("\t<--- ")); DEBUG_PRINTLN(replybuffer);//get +CHTTPS: RECV EVENT
+
+   sendCheckReply(F("AT+CHTTPSRECV=4000"),ok_reply);
+
+   //parseReply(F("+CHTTPSRECV:"), datalen, ',', 0);
+
+  return true;
+}
+
+
+
 /*
-boolean Adafruit_FONA_3G::HTTP_GET_start(char *ipaddr, char *path, uint16_t port
-				      uint16_t *status, uint16_t *datalen){
+boolean Adafruit_FONA_3G::HTTP_GET_start(char *ipaddr, char *path, uint16_t port uint16_t *status, uint16_t *datalen){
   char send[100] = "AT+CHTTPACT=\"";
   char *sendp = send + strlen(send);
   memset(sendp, 0, 100 - strlen(send));
@@ -1618,6 +1689,11 @@ boolean Adafruit_FONA_3G::HTTP_GET_start(char *ipaddr, char *path, uint16_t port
 void Adafruit_FONA::HTTP_GET_end(void) {
   HTTP_term();
 }
+
+void Adafruit_FONA_3G::HTTP_GET_end(void) {
+  sendCheckReply(F("AT+CHTTPSCLSE"), ok_reply);
+}
+
 
 boolean Adafruit_FONA::HTTP_POST_start(char *url,
               FONAFlashStringPtr contenttype,
@@ -1876,6 +1952,24 @@ uint8_t Adafruit_FONA::getReply(FONAFlashStringPtr prefix, int32_t suffix1, int3
   return l;
 }
 
+uint8_t Adafruit_FONA::concatAndSend(FONAFlashStringPtr prefix, FONAFlashStringPtr middle, FONAFlashStringPtr suffix, uint16_t timeout) {
+  flushInput();
+  DEBUG_PRINT(F("\t---> ")); 
+  DEBUG_PRINT(prefix);
+  DEBUG_PRINT(middle); 
+  DEBUG_PRINTLN(suffix);
+
+  mySerial->print(prefix);
+  mySerial->print(middle);
+  mySerial->println(suffix);
+
+  uint8_t l = readline(timeout);
+
+  DEBUG_PRINT (F("\t<--- ")); DEBUG_PRINTLN(replybuffer);
+
+  return l;
+}
+
 // Send prefix, ", suffix, ", and newline. Return response (and also set replybuffer with response).
 uint8_t Adafruit_FONA::getReplyQuoted(FONAFlashStringPtr prefix, FONAFlashStringPtr suffix, uint16_t timeout) {
   flushInput();
@@ -1889,13 +1983,19 @@ uint8_t Adafruit_FONA::getReplyQuoted(FONAFlashStringPtr prefix, FONAFlashString
   mySerial->print('"');
   mySerial->print(suffix);
   mySerial->println('"');
-
   uint8_t l = readline(timeout);
 
   DEBUG_PRINT (F("\t<--- ")); DEBUG_PRINTLN(replybuffer);
 
   return l;
 }
+
+// Send prefix, suffix, suffix2, and newline.  Verify FONA response matches reply parameter.
+boolean Adafruit_FONA::sendCheckReply(FONAFlashStringPtr prefix, int32_t suffix1, int32_t suffix2, FONAFlashStringPtr reply, uint16_t timeout) {
+  getReply(prefix, suffix1, suffix2, timeout);
+  return (prog_char_strcmp(replybuffer, (prog_char*)reply) == 0);
+}
+
 
 boolean Adafruit_FONA::sendCheckReply(char *send, char *reply, uint16_t timeout) {
   if (! getReply(send, timeout) )
@@ -1939,11 +2039,6 @@ boolean Adafruit_FONA::sendCheckReply(FONAFlashStringPtr prefix, int32_t suffix,
   return (prog_char_strcmp(replybuffer, (prog_char*)reply) == 0);
 }
 
-// Send prefix, suffix, suffix2, and newline.  Verify FONA response matches reply parameter.
-boolean Adafruit_FONA::sendCheckReply(FONAFlashStringPtr prefix, int32_t suffix1, int32_t suffix2, FONAFlashStringPtr reply, uint16_t timeout) {
-  getReply(prefix, suffix1, suffix2, timeout);
-  return (prog_char_strcmp(replybuffer, (prog_char*)reply) == 0);
-}
 
 // Send prefix, ", suffix, ", and newline.  Verify FONA response matches reply parameter.
 boolean Adafruit_FONA::sendCheckReplyQuoted(FONAFlashStringPtr prefix, FONAFlashStringPtr suffix, FONAFlashStringPtr reply, uint16_t timeout) {

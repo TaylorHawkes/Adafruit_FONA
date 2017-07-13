@@ -27,8 +27,8 @@ the commented section below at the end of the setup() function.
 */
 #include "Adafruit_FONA.h"
 
-#define FONA_RX 2
-#define FONA_TX 3
+#define FONA_TX 2
+#define FONA_RX 3
 #define FONA_RST 4
 
 // this is a large buffer for replies
@@ -45,9 +45,9 @@ SoftwareSerial *fonaSerial = &fonaSS;
 //  HardwareSerial *fonaSerial = &Serial1;
 
 // Use this for FONA 800 and 808s
-Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
+//Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 // Use this one for FONA 3G
-//Adafruit_FONA_3G fona = Adafruit_FONA_3G(FONA_RST);
+Adafruit_FONA_3G fona = Adafruit_FONA_3G(FONA_RST);
 
 uint8_t readline(char *buff, uint8_t maxbuff, uint16_t timeout = 0);
 
@@ -97,7 +97,7 @@ void setup() {
   // network.  Contact your provider for the exact APN, username,
   // and password values.  Username and password are optional and
   // can be removed, but APN is required.
-  //fona.setGPRSNetworkSettings(F("your APN"), F("your username"), F("your password"));
+  fona.setGPRSNetworkSettings(F("hologram"));
 
   // Optionally configure HTTP gets to follow redirects over SSL.
   // Default is not to follow SSL redirects, however if you uncomment
